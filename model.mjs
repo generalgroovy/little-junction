@@ -29,4 +29,11 @@ export function step(state){
   return next;
 }
 export function won(s){return s.finished&&s.wrong===0&&s.delivered===WAVES[s.level].carts.length;}
+export function nextWarning(state){
+  if(state.finished)return null;
+  const wrong=step(state).events.find(e=>e.type==='wrong');
+  if(!wrong)return null;
+  const cart=state.carts.find(c=>c.id===wrong.id);
+  return {target:wrong.target,station:wrong.station,junction:cart.node,canReroute:NODES[cart.node].next.includes(wrong.target)};
+}
 export function solvePath(target){return target==='sun'?{fork:0,upper:0}:target==='leaf'?{fork:1,lower:1}:{fork:0,upper:1};}

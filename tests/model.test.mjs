@@ -1,4 +1,4 @@
-import test from 'node:test';import assert from 'node:assert/strict';import {create,step,setSwitch,won,WAVES} from '../model.mjs';
+import test from 'node:test';import assert from 'node:assert/strict';import {create,step,setSwitch,won,WAVES,nextWarning} from '../model.mjs';
 test('first tick admits one cart without moving it twice',()=>{const before=create(),next=step(before);assert.equal(next.tick,1);assert.deepEqual(next.carts,[{id:0,target:'sun',node:'entry'}]);assert.equal(before.tick,0);});
 test('cart advances one edge each tick',()=>{let s=create();s=step(s);s=step(s);assert.equal(s.carts.find(c=>c.id===0).node,'fork');s=step(s);assert.equal(s.carts.find(c=>c.id===0).node,'upper');s=step(s);assert.equal(s.delivered,1);});
 test('wrong destinations recorded honestly',()=>{let s=setSwitch(create(),'upper',1);for(let i=0;i<4;i++)s=step(s);assert.equal(s.wrong,1);assert.equal(s.delivered,0);assert.equal(s.events[0].station,'moon');});
@@ -10,3 +10,5 @@ for(const c of s.carts){if(c.node==='fork')s=setSwitch(s,'fork',c.target==='leaf
 assert.equal(won(s),true,wave.name);assert.equal(s.delivered,wave.carts.length);});});
 test('same puzzle and inputs replay deterministically; snapshots recover exactly',()=>{let a=create(2),b=create(2);const snapshot=structuredClone(a);for(let i=0;i<8;i++){a=step(setSwitch(a,'fork',i%2));b=step(setSwitch(b,'fork',i%2));}assert.deepEqual(a,b);assert.deepEqual(snapshot,create(2));});
 test('finished failed run never becomes a win',()=>{let s=create();while(!s.finished)s=step(s);assert.equal(won(s),false);assert.deepEqual(step(s),s);});
+test('next-step warning identifies a reroutable delivery without advancing time',()=>{let s=setSwitch(create(),'upper',1);for(let i=0;i<3;i++)s=step(s);const before=structuredClone(s);assert.deepEqual(nextWarning(s),{target:'sun',station:'moon',junction:'upper',canReroute:true});assert.deepEqual(s,before);assert.equal(nextWarning(setSwitch(s,'upper',0)),null);});
+test('warning distinguishes a cart that needs undo and ignores finished routes',()=>{const s={...create(),waiting:[],carts:[{id:0,target:'leaf',node:'upper'}]};assert.deepEqual(nextWarning(s),{target:'leaf',station:'sun',junction:'upper',canReroute:false});assert.equal(nextWarning(step(s)),null);assert.equal(nextWarning(create()),null);});
