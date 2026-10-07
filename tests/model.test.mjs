@@ -1,0 +1,12 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {create,step,setSwitch,won,WAVES} from '../model.mjs';
+test('first tick admits one cart without moving it twice',()=>{const before=create(),next=step(before);assert.equal(next.tick,1);assert.deepEqual(next.carts,[{id:0,target:'sun',node:'entry'}]);assert.equal(before.tick,0);});
+test('cart advances one edge each tick',()=>{let s=create();s=step(s);s=step(s);assert.equal(s.carts.find(c=>c.id===0).node,'fork');s=step(s);assert.equal(s.carts.find(c=>c.id===0).node,'upper');s=step(s);assert.equal(s.delivered,1);});
+test('wrong destinations recorded honestly',()=>{let s=setSwitch(create(),'upper',1);for(let i=0;i<4;i++)s=step(s);assert.equal(s.wrong,1);assert.equal(s.delivered,0);assert.equal(s.events[0].station,'moon');});
+test('switch changes preserve time and arrivals',()=>{const s=step(create());const n=setSwitch(s,'fork',1);assert.equal(n.tick,s.tick);assert.deepEqual(n.carts,s.carts);assert.equal(s.switches.fork,0);assert.throws(()=>setSwitch(s,'moon',0));});
+test('blocked destination causes waiting, never duplicate occupancy',()=>{let s=create(3);for(let i=0;i<30;i++){s=step(s);assert.equal(new Set(s.carts.map(c=>c.node)).size,s.carts.length);assert.ok(s.carts.length<=4);}});
+test('simultaneous terminal arrivals count exactly once',()=>{const s={...create(),waiting:[],carts:[{id:0,target:'sun',node:'upper'},{id:1,target:'leaf',node:'lower'}],switches:{fork:0,upper:0,lower:1}};const n=step(s);assert.equal(n.delivered,2);assert.equal(n.carts.length,0);assert.equal(n.finished,true);assert.deepEqual(step(n),n);});
+test('each authored wave is solvable through visible routing',()=>{WAVES.forEach((wave,level)=>{let s=create(level);for(let i=0;i<100&&!s.finished;i++){
+for(const c of s.carts){if(c.node==='fork')s=setSwitch(s,'fork',c.target==='leaf'?1:0);if(c.node==='upper')s=setSwitch(s,'upper',c.target==='sun'?0:1);if(c.node==='lower')s=setSwitch(s,'lower',c.target==='leaf'?1:0);}s=step(s);}
+assert.equal(won(s),true,wave.name);assert.equal(s.delivered,wave.carts.length);});});
+test('same puzzle and inputs replay deterministically; snapshots recover exactly',()=>{let a=create(2),b=create(2);const snapshot=structuredClone(a);for(let i=0;i<8;i++){a=step(setSwitch(a,'fork',i%2));b=step(setSwitch(b,'fork',i%2));}assert.deepEqual(a,b);assert.deepEqual(snapshot,create(2));});
+test('finished failed run never becomes a win',()=>{let s=create();while(!s.finished)s=step(s);assert.equal(won(s),false);assert.deepEqual(step(s),s);});
